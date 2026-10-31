@@ -461,3 +461,26 @@ body:has(#discovery-question:not([hidden])) #btn-ride {visibility:hidden;}
 
 .discovery-journal-card .discovery-observation {margin-top:10px;color:#f0dc9b;font-size:13px;}
 .discovery-ending {border-color:#d3bc72;}
+
+/*269 persistent recovery notice, never covers the movement controls.*/
+#collect-recovery {position:fixed;z-index:120;left:12px;top:130px;max-width:290px;padding:14px;border-radius:14px;background:#123f35;color:#fff4cf;box-shadow:0 4px 20px #0005;font:14px/1.4 system-ui;}
+#collect-recovery[hidden] {display:none;}
+#collect-recovery p {margin:8px 0;}
+#collect-retry {min-height:44px;padding:8px 14px;border:0;border-radius:9px;background:#e5ce88;color:#153c33;font:600 14px system-ui;}
+#collect-retry:disabled {opacity:.6;}
+
+/* Voice consent copy must never sit beneath transient gameplay feedback. */
+#voice-feedback #toasts { position:static;transform:none;width:auto;max-width:100%;margin:0 0 14px;align-items:stretch; }
+#voice-feedback #toasts .lk-toast { max-width:100%; }
+
+/*282 full destination search, route checks only for displayed stops. */
+.lk-taxisearch { box-sizing:border-box;width:100%;min-height:44px;border:1px solid #8fae9e;border-radius:12px;padding:9px 12px;background:#f3ead2;color:#18332e;font:14px system-ui,sans-serif; }
+.lk-taxidestinations { display:flex;flex-direction:column;gap:6px; }
+.lk-taxidestinations .lk-ridebtn:disabled { opacity:.45;cursor:default; }
+.lk-taxipanel > :not(.lk-taxidestinations) { flex:0 0 auto; }
+.lk-taxidestinations { min-height:0;overflow-y:auto;overscroll-behavior:contain; }
+/* On-stage actions stay in reach without opening the mobile Menu. */
+#stage-chip { position:fixed;left:50%;bottom:172px;transform:translateX(-50%);background:#1e2430ee;color:#fff;padding:10px 12px;border-radius:18px;font-size:14px;z-index:30;align-items:center;justify-content:center;gap:8px;max-width:min(520px,90vw);text-align:center;flex-wrap:wrap;box-sizing:border-box; }
+#stage-chip span { flex-basis:100%;overflow-wrap:anywhere; }
+#stage-chip button { min-height:44px;padding:8px 14px;border:0;border-radius:14px;background:#ffd24a;color:#3a2c00;font-weight:600;cursor:pointer; }
+@media(max-width:640px) { #stage-chip { left:12px;right:92px;transform:none;max-width:none; } }
