@@ -1,3 +1,4 @@
+import { terrainRibbon } from './terrain-ribbon.js';
 import { ribbonStrip } from './ribbon-strip.js';
 import { polygonQuery } from './polygon-query.js';
 import { nearOutline } from './near-outline.js';
@@ -64,7 +65,8 @@ function ribbon(pts, wU, color, y) { // flat road ribbon along a polyline. 192: 
     for (let k = 1; k <= SUB; k++) dp.push([x1 + (x2 - x1) * k / SUB, z1 + (z2 - z1) * k / SUB]);
   }
   if (dp.length < 2) return group;
-  const {pos,idx}=ribbonStrip(dp,wU,Y);
+  let {pos,idx}=ribbonStrip(dp,wU,Y);
+  if(typeof y==='function'){pos=terrainRibbon(pos,idx,Y);idx=Array.from({length:pos.length/3},(_,i)=>i);}
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx); g.computeVertexNormals();
@@ -744,4 +746,4 @@ function buildFabric(group, geo, edgeDist) {
   finalizeFacades(group);
   if (typeof window !== 'undefined') window.__fabDebug = DBG;
   return { count, placed };
-}
+                                                                }
