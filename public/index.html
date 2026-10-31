@@ -86,7 +86,7 @@
 
   <aside class="lk-panel lk-side" id="panel-discovery" hidden>
     <button class="lk-close" data-close aria-label="Close story panel">×</button>
-    <p class="lk-eyebrow">BRIDGE KEEPER'S TRAIL</p><h2>Your discoveries</h2>
+    <p class="lk-eyebrow" id="discovery-trail-name">BRIDGE KEEPER'S TRAIL</p><h2>Your discoveries</h2>
     <p class="lk-sub">Original fiction set in this rough game preview, not historical facts or real-world directions. Session only.</p>
     <p id="discovery-summary" aria-live="polite"></p><div id="discovery-stories"></div><button class="lk-btn" id="discovery-continue">Continue trail</button>
   </aside>
@@ -270,8 +270,9 @@
     <button class="lk-close" data-close aria-label="Close">×</button>
     <p class="lk-eyebrow">VOICE (BETA)</p>
     <h1 class="lk-h1">City voice room.</h1>
+    <div id="voice-feedback" role="status" aria-live="polite"></div>
     <div id="voice-intro">
-      <p class="lk-sub">Talk with up to <span id="voice-max-n">8</span> people in this city. Your microphone stays off until you tap Join and allow it in your browser; you can also join listen-only. Voice goes directly between players' devices, so the other people in the room (and their browsers) can see your network IP address, which can reveal your rough location and internet provider. It is not recorded or stored by this site, and a Cloudflare STUN server is used to find a route (it sees your IP address too). Anyone in the room can hear you, so be kind: you can mute or report anyone. Muting stops sending your voice but keeps your microphone connected, so your browser may keep showing its mic-in-use light until you leave voice. Reports are saved for the site owner to review. Some networks block direct connections, so you may not be able to hear everyone.</p>
+      <p class="lk-sub">Experimental city voice. Configured room limit: <span id="voice-max-n">not checked</span>. Full-room capacity and cross-network audio are still being tested. Your microphone stays off until you tap Join and allow it in your browser; you can also join listen-only. Voice goes directly between players' devices, so the other people in the room (and their browsers) can see your network IP address, which can reveal your rough location and internet provider. It is not recorded or stored by this site, and a Cloudflare STUN server is used to find a route (it sees your IP address too). Anyone in the room can hear you, so be kind: you can mute or report anyone. Muting stops sending your voice but keeps your microphone connected, so your browser may keep showing its mic-in-use light until you leave voice. Reports are saved for the site owner to review. Some networks block direct connections, so you may not be able to hear everyone.</p>
       <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="voice-join">Join with mic</button><button class="lk-btn lk-btn-ghost" id="voice-listen">Listen only</button></div>
     </div>
     <div id="voice-live" hidden>
@@ -298,6 +299,11 @@
     <p class="lk-sub">This build includes map data from: OpenStreetMap (&copy; OpenStreetMap contributors, Open Database License 1.0 - openstreetmap.org/copyright; road extracts in the ?proto=ny and ?proto=delhi prototypes, offered under the ODbL per their file headers; and the sourced river centreline courses in nine cities - Thames, Seine, Moskva, Spree, Tiber, Rimac, Chao Phraya, Ciliwung, Mto Nairobi - each marked in the source with its OpenStreetMap relation); GSHHG 2.3.7 shoreline data (&copy; NOAA / University of Hawaii, LGPLv3 or later - licence texts in the project repository; shoreline research lines only); Natural Earth 10m physical data (public domain). Rendering: three.js (&copy; Three.js authors, MIT license). All city layouts are stylized gameplay arrangements, not surveyed maps.</p>
   </aside>
 </div>
+<aside id="collect-recovery" hidden aria-label="Collecting update" role="status">
+ <strong>Collecting paused</strong>
+ <p id="collect-recovery-status"></p>
+ <button id="collect-retry" type="button">Retry collecting</button>
+</aside>
 <script type="module" src="/app.js"></script>
 </body>
 </html>
