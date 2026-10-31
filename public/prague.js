@@ -125,6 +125,22 @@ export async function buildPragueGroup() {
     const xa=lo+Math.floor((-52-lo)/step)*step,xb=lo+Math.ceil((44-lo)/step)*step;
     const za=lo+Math.floor((-60-lo)/step)*step,zb=lo+Math.ceil((8-lo)/step)*step;
     const terrainMat=new THREE.MeshStandardMaterial({color:'#a8b088',roughness:1});
+    //268 procedural ground tone, no texture, added geometry or animation.
+    terrainMat.onBeforeCompile=shader=>{
+      shader.vertexShader='varying vec3 vGrassWorld;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nvGrassWorld=(modelMatrix*vec4(transformed,1.0)).xyz;');
+      shader.fragmentShader=`varying vec3 vGrassWorld;
+      float grassHash268(vec2 q){return fract(sin(dot(q,vec2(127.1,311.7)))*43758.5453);}
+      float grassNoise268(vec2 q){vec2 i=floor(q),f=fract(q);f=f*f*(3.-2.*f);return mix(mix(grassHash268(i),grassHash268(i+vec2(1,0)),f.x),mix(grassHash268(i+vec2(0,1)),grassHash268(i+vec2(1,1)),f.x),f.y);}
+      `+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+       vec2 gp=vGrassWorld.xz;
+       float broad=grassNoise268(gp*.3)*2.-1.;
+       float fine=grassNoise268(gp*2.3)*2.-1.;
+       diffuseColor.rgb*=.94+broad*.075+fine*.025;
+      `);
+    };
+    terrainMat.customProgramCacheKey=()=> 'prague-grass268';
     function patch(x0,x1,z0,z1,nx,nz){const tg=new THREE.PlaneGeometry(x1-x0,z1-z0,nx,nz);tg.rotateX(-Math.PI/2);const tp=tg.attributes.position,cx=(x0+x1)/2,cz=(z0+z1)/2;for(let i=0;i<tp.count;i++)tp.setY(i,.605+hillY(tp.getX(i)+cx,tp.getZ(i)+cz));tg.computeVertexNormals();const m=new THREE.Mesh(tg,terrainMat);m.position.set(cx,0,cz);m.receiveShadow=true;group.add(m);}
     patch(xa,xb,za,zb,Math.round((xb-xa)/step),Math.round((zb-za)/step));
     patch(lo,xa,lo,hi,1,1);patch(xb,hi,lo,hi,1,1);patch(xa,xb,lo,za,1,1);patch(xa,xb,zb,hi,1,1);
@@ -746,4 +762,4 @@ function buildFabric(group, geo, edgeDist) {
   finalizeFacades(group);
   if (typeof window !== 'undefined') window.__fabDebug = DBG;
   return { count, placed };
-                                                                }
+     }
