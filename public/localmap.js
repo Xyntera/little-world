@@ -38,6 +38,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     const name = stopName(q);
     return places.filter(p => stopName(p) === name).length > 1 ? name + ' (' + (q.z < 0 ? 'north' : 'south') + (q.x < 0 ? 'west' : 'east') + ')' : name;
   };
+  const choices = w => [...targets(w),...(getDiscovery?getDiscovery():[]).map(q=>({...q,name:'Discovery '+q.number+': '+(q.name||'Story spot'),discovery:true}))];
   const clear = () => { selected = null; document.getElementById('map-marker').hidden = true; };
   function refresh(key) {
     const w = getWorld(); if (!w) return;
@@ -48,9 +49,10 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
 
     const select = document.getElementById('localmap-select'); select.replaceChildren();
     const first = document.createElement('option'); first.value = ''; first.textContent = w.mapPlaces ? 'Choose a map landmark' : 'Choose a named stop'; select.append(first);
-    targets(w).forEach((q, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = stopLabel(q, targets(w)); select.append(o); });
-    if (selected) { const i = targets(w).findIndex(q => stopLabel(q, targets(w)) === selected.name && q.x === selected.x && q.z === selected.z); if (i >= 0) select.value = String(i); }
-    select.onchange = () => { const q = targets(w)[+select.value]; if (select.value && q) { selected = { ...q, name: stopLabel(q, targets(w)) }; onChoose(q); draw(); } else { clear(); draw(); } };
+    const available=choices(w);
+    available.forEach((q, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = stopLabel(q, available)+(q.discovery?(q.found?' (found)':q.current?' (next)':' (later)'):''); select.append(o); });
+    if (selected) { const i = available.findIndex(q => stopLabel(q, available) === selected.name && q.x === selected.x && q.z === selected.z); if (i >= 0) select.value = String(i); }
+    select.onchange = () => { const q = available[+select.value];if(getWorld()!==w){clear();return;} if (select.value && q) { selected = { ...q, name: stopLabel(q, available) }; onChoose(q); draw(); } else { clear(); draw(); } };
     document.getElementById('localmap-clear').onclick = () => { clear(); select.value = ''; draw(); };
     bounds = w.mapBounds || [w.clamp(-1e6,0)[0],w.clamp(1e6,0)[0],w.clamp(0,-1e6)[1],w.clamp(0,1e6)[1]];
     draw();
@@ -97,9 +99,10 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
   }
   function tick(key, yaw) {
     if(cityKey!==key){clear();cityKey=key;bounds=null;zoom=1;center=null;showGuide=false;}
+    if(selected?.discovery&&!(getDiscovery?getDiscovery():[]).some(q=>q.number===selected.number&&q.x===selected.x&&q.z===selected.z))clear();
     const el=document.getElementById('map-marker'),p=getPlayer();
     if(selected&&p){const dx=selected.x-p.x,dz=selected.z-p.z,d=Math.hypot(dx,dz);el.hidden=false;
-      document.getElementById('map-marker-text').textContent=selected.name+' · '+Math.round(d*((getWorld()||{}).mapMetersPerUnit||1))+' m'+(d<=(getWorld().mapPlaces?Math.max(.8,selected.r||0):Math.max(5,selected.r||0))?' · nearby':'');
+      document.getElementById('map-marker-text').textContent=selected.name+' · '+Math.round(d*(selected.metersPerUnit||(getWorld()||{}).mapMetersPerUnit||1))+' m'+(selected.discovery?' direct · not a route':'')+(d<=(selected.discovery?selected.r:getWorld().mapPlaces?Math.max(.8,selected.r||0):Math.max(5,selected.r||0))?' · nearby':'');
       document.getElementById('map-marker-arrow').style.transform='rotate('+((Math.atan2(dx,dz)-yaw)*-180/Math.PI)+'deg)';
     }else el.hidden=true;
     if (el && !el.hidden) el.style.visibility = document.querySelector('.lk-side:not([hidden])') ? 'hidden' : 'visible';
