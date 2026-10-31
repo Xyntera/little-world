@@ -517,14 +517,7 @@ function send(res, status, body, headers) {
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
 }
 
-function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let buf = '';
-    req.on('data', c => { buf += c; if (buf.length > 65536) reject(new Error('body too large')); });
-    req.on('end', () => { if (!buf) return resolve({}); try { resolve(JSON.parse(buf)); } catch { reject(new Error('invalid JSON')); } });
-    req.on('error', reject);
-  });
-}
+const { readBody } = require('./read-body');
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 
