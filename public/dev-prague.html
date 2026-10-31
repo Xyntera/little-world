@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>dev-prague-geo</title>
+<body style="margin:0">
+<script type="module">
+import * as THREE from '/vendor/three.module.js';
+import { buildPragueGroup } from '/prague.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#a4d0ee');
+const cam = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .1, 2000);
+scene.add(new THREE.AmbientLight('#ffffff', .8)); const sun = new THREE.DirectionalLight('#ffe8b8', 2); sun.position.set(60, 120, 40); scene.add(sun);
+const out = await buildPragueGroup();
+if (out.ok) scene.add(out.group); window.__prague = out;
+window.__setCam = (x, y, z, tx, ty, tz) => { cam.position.set(x, y, z); cam.lookAt(tx, ty, tz); };
+window.__render = () => r.render(scene, cam);
+window.__setCam(30, 150, 160, 10, 0, -10); window.__render();
+</script>

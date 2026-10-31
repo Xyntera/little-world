@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Little World - ലിറ്റിൽ കേരളം</title>
+<meta name="description" content="A small multiplayer world in the browser. Walk, ride and collect across cities." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="lk-root" id="root">
+
+  <div class="lk-overlay" id="intro" hidden>
+    <div class="lk-intro-card">
+      <div class="lk-intro-head"><span>Welcome to Little World <span class="lk-ml">· സ്വാഗതം</span></span></div>
+      <div class="lk-intro-hero">
+        <img src="/hero.jpg" alt="Illustration (not a game screenshot): city islands joined by a road, with stylized landmark towers, a houseboat, a car, a scooter and a waving boy" />
+        <div class="lk-intro-logo">Little World<span class="lk-ml lk-logo-ml">working name</span></div>
+      </div>
+      <p class="lk-intro-caption">Illustration, not gameplay. The game is simpler low-poly 3D.</p>
+      <div class="lk-intro-actions">
+        <a class="lk-btn lk-btn-ghost" id="intro-wa" target="_blank" rel="noreferrer">Share on WhatsApp</a>
+        <button class="lk-btn lk-btn-ghost" id="intro-copy">Copy link</button>
+        <button class="lk-btn lk-btn-ghost lk-skip" id="intro-skip">Skip intro ×</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lk-play-wrap" id="play" hidden>
+    <div class="lk-stage" id="stage"><canvas class="lk-canvas" id="canvas" aria-label="Little World 3D world. Use W A S D or arrow keys to walk, drag to look around."></canvas><div id="labels" aria-hidden="true"></div><div id="joy" hidden><div id="joy-knob"></div></div></div>
+
+    <header class="lk-hud">
+      <div class="lk-brand">LITTLE WORLD · <span id="brand-city">World</span></div>
+      <button class="lk-pill" id="points-pill"><span id="points-num">0</span> <span class="lk-pill-dim">points</span></button>
+      <span class="lk-pill lk-pill-static" title="People online right now"><span id="presence-num">1</span> <span class="lk-pill-dim">exploring together</span></span>
+      <button class="lk-icon" id="btn-menu" title="Menu" aria-label="Open menu with more options" aria-haspopup="true" aria-expanded="false" aria-controls="mmenu" hidden>Menu</button>
+      <div class="lk-hud-icons">
+        <button class="lk-icon" id="btn-voice" title="Voice room (beta)" aria-label="Voice room" hidden>Voice</button>
+        <button class="lk-icon" id="btn-games" title="Play minigames" aria-label="Games: Ludo-style race, Echo Dance, Freeze Beat">Games</button>
+        <button class="lk-icon lk-explore-trigger" id="btn-explore" aria-label="Open illustrated explore banner">Explore</button>
+        <button class="lk-icon" id="btn-localmap" title="Map of this place" aria-label="Map of this place">Map</button>
+        <button class="lk-icon" id="btn-travel" title="Pick a place on the world map" aria-label="Pick a place on the world map">World</button>
+        <button class="lk-icon" id="btn-passport" title="Your landmark stamps" aria-label="Your landmark stamps">Stamps</button>
+        <button class="lk-icon" id="btn-monsoon" title="Change to monsoon rain" aria-label="Toggle rain">Rain</button>
+        <button class="lk-icon" id="btn-mute" title="Mute sounds" aria-label="Mute or unmute sounds">Sound</button>
+        <button class="lk-icon" id="btn-full" title="Fill the screen" aria-label="Full screen">Full</button>
+        <button class="lk-icon" id="btn-help" title="How to play" aria-label="How to play">Help</button>
+        <button class="lk-icon" id="btn-view" title="Change camera view" aria-label="Switch between first person and third person camera">View</button>
+        <button class="lk-icon" id="btn-look" title="Your profile" aria-label="Your look and profile">Look</button>
+      </div>
+    </header>
+
+    <div class="lk-mmenu" id="mmenu" hidden><div class="lk-mmenu-sec" id="mmenu-tools"></div><div class="lk-mmenu-sec" id="mmenu-emotes"></div></div>
+
+    <div class="lk-landmark" id="landmark-hint" hidden></div>
+    <div class="lk-arrival" id="landmark-arrival" hidden><div id="la-name"></div><div id="la-sub"></div></div>
+    <div class="lk-ride" id="ride-bar"><button class="lk-ridebtn" id="btn-run" aria-label="Hold to run">Run</button><button class="lk-ridebtn" id="btn-jump" aria-label="Jump">Jump</button><button class="lk-ridebtn" id="btn-sit" aria-label="Sit down or stand up">Sit</button><button class="lk-ridebtn" id="btn-mic" hidden aria-pressed="false" aria-label="Microphone: tap to talk, tap again to mute">Mic</button><button class="lk-ridebtn lk-enterbtn" id="btn-fup" style="display:none" aria-label="Climb">Up</button><button class="lk-ridebtn lk-enterbtn" id="btn-fdown" style="display:none" aria-label="Descend">Down</button><button class="lk-ridebtn lk-enterbtn" id="btn-enter" style="display:none" aria-label="Get in or out of the nearby vehicle">Get in</button><button class="lk-ridebtn lk-enterbtn" id="btn-gate" style="display:none" aria-label="Travel from here">Travel</button><button class="lk-ridebtn" id="btn-ride" aria-label="Choose a ride" aria-haspopup="true">Ride</button><div class="lk-ridemenu lk-taxipanel" id="taxi-panel"></div><div class="lk-ridemenu" id="ride-menu" role="menu"><button class="lk-ridebtn" id="btn-calltaxi" role="menuitem">Call a taxi (free)</button><button class="lk-ridebtn" data-veh="scooter" role="menuitem">Scooter</button><button class="lk-ridebtn" data-veh="bicycle" role="menuitem">Bicycle</button><button class="lk-ridebtn" data-veh="bike" role="menuitem">Sport bike</button><button class="lk-ridebtn" data-veh="taxi" role="menuitem">Taxi car</button><button class="lk-ridebtn" data-veh="car" role="menuitem">Car (C)</button><button class="lk-ridebtn" data-veh="suv" role="menuitem">SUV (N)</button><button class="lk-ridebtn" data-veh="pickup" role="menuitem">Pickup</button><button class="lk-ridebtn" data-veh="van" role="menuitem">Van</button><button class="lk-ridebtn" data-veh="roadster" role="menuitem">Roadster (V)</button><button class="lk-ridebtn" data-veh="supercar" role="menuitem">Supercar (M)</button><button class="lk-ridebtn" data-veh="boat" role="menuitem">Boat (B)</button></div></div>
+    <div class="lk-goal" title="Everyone here collects together"><span>City goal</span><div class="lk-goal-track"><div id="goal-bar"></div></div><b id="goal-num">0/500</b></div>
+    <div class="lk-emotes"><button data-emote="wave" aria-label="Wave">Wave</button><button data-emote="laugh" aria-label="Laugh">Laugh</button><button data-emote="dance" aria-label="Dance">Dance</button><button data-emote="party" aria-label="Party">Party</button><button data-emote="heart" aria-label="Send love">Love</button></div>
+    <div class="lk-district-tag" id="district-tag" hidden><strong id="dt-en"></strong> <span class="lk-ml" id="dt-ml"></span></div>
+
+    <div class="lk-hints"><span>Walk over things to collect</span><span class="lk-dot">·</span><span>WASD to move</span><span class="lk-dot">·</span><span>Shift to run</span><span class="lk-dot">·</span><span>Drag to look</span></div>
+
+    <div id="toasts"></div>
+    <div id="gas" role="img" aria-label="Thrust gas" style="display:none"><i></i><span>Thrust gas</span></div>
+
+    <div class="lk-overlay lk-overlay-blur" id="onboard" hidden>
+      <div class="lk-panel lk-onboard">
+        <h1 class="lk-h1">Join the world.</h1>
+        <p class="lk-sub">Pick a name and explore. Optionally, you can also count your points for a Kerala district on its own board.</p>
+        <label class="lk-label">Kerala district (optional)</label>
+        <select class="lk-select" id="ob-district"><option value="-1">No district</option></select>
+        <label class="lk-check"><input type="checkbox" id="ob-adult" /><span>I confirm I am 18 or older, and agree to the terms of this demo.</span></label>
+        
+        <input class="lk-input" id="ob-name" placeholder="Your name" maxlength="24" />
+        <button class="lk-btn lk-btn-primary" id="ob-join" disabled>Join without signing in</button>
+        <p class="lk-note">No account needed to play this demo. Google sign-in belongs to the original live service; voice chat here is an opt-in beta.</p>
+        <p class="lk-error" id="ob-error" hidden></p>
+      </div>
+    </div>
+
+    <footer class="lk-footnote" id="footnote" hidden>
+      Independent fan project inspired by kerala.dhilber.com, not affiliated with it. <a href="#" id="credits-link">Credits and notices</a>
+    </footer>
+  </div>
+
+  <aside class="lk-panel lk-side" id="panel-discovery" hidden>
+    <button class="lk-close" data-close aria-label="Close story panel">×</button>
+    <p class="lk-eyebrow">BRIDGE KEEPER'S TRAIL</p><h2>Your discoveries</h2>
+    <p class="lk-sub">Original fiction set in this rough game preview, not historical facts or real-world directions. Session only.</p>
+    <p id="discovery-summary" aria-live="polite"></p><div id="discovery-stories"></div><button class="lk-btn" id="discovery-continue">Continue trail</button>
+  </aside>
+  <aside class="lk-panel lk-side" id="panel-explore" hidden aria-labelledby="explore-title">
+    <button class="lk-close" data-close aria-label="Close explore banner">×</button>
+    <p class="lk-eyebrow">YOUR NEXT LITTLE ADVENTURE</p>
+    <h2 id="explore-title">Explore Little World</h2>
+    <picture class="lk-explore-art">
+      <source type="image/webp" data-srcset="/art/explore-480.webp 480w, /art/explore-960.webp 960w" sizes="(max-width: 520px) 330px, 340px">
+      <img data-src="/art/explore-960.jpg" width="960" height="540" alt="Fantasy island illustration with a stone bridge, small houses, a car and a little explorer" decoding="async" loading="lazy">
+    </picture>
+    <p class="lk-sub">An original illustration, not gameplay or a real place. The game is simpler low-poly 3D.</p>
+    <h3 class="lk-explore-map-title">Around you</h3>
+    <button class="lk-explore-map-preview" id="explore-map-inline" aria-label="Open full local map">
+      <canvas id="explore-map-preview" width="640" height="300" role="img" aria-label="Local game map preview, white dot is your position"></canvas>
+      <span>Open full map →</span>
+    </button>
+    <p class="lk-sub">White: you. Blue: water. Gray: game buildings. Pink: original outlines where changed. Game layout, not real-world directions.</p>
+    <div class="lk-explore-actions">
+      <button class="lk-btn" id="explore-discovery" hidden>Open bridge discovery walk</button>
+      <button class="lk-btn" id="explore-world">Choose a place</button>
+      <button class="lk-btn lk-btn-ghost" id="explore-map">Open local map</button>
+      <button class="lk-btn lk-btn-ghost" id="explore-close">Back to game</button>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-board" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">LEADERBOARDS</p>
+    <h1 class="lk-h1">Who is winning the world?</h1>
+    <p class="lk-sub">Every collected thing counts for you and for the city you are in.</p>
+    <div class="lk-you"><span>🏆 <strong id="board-points">0</strong> points</span><span class="lk-pill-dim" id="board-you-note"></span></div>
+    <div class="lk-tabs"><button data-board="cities">Cities</button><button data-board="countries">Countries</button><button data-board="districts">Kerala districts</button></div>
+    <ol class="lk-board" id="board-list"></ol>
+    <p class="lk-note">Live board from this site's own backend.</p>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-events" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <h1 class="lk-h1 lk-h1-sm">Stage events</h1>
+    <p class="lk-sub" id="events-sub">Free for everyone. Anyone can put on a show or dance in one. Times are in your local time.</p>
+    <div id="events-host"></div>
+    <ul class="lk-list" id="events-list"></ul>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-look" hidden>
+    <button class="lk-close" data-close aria-label="Close without saving">×</button>
+    <h1 class="lk-h1 lk-h1-sm">Choose how you look</h1>
+    <p class="lk-sub">You can change it any time from your profile.</p>
+    <div class="lk-look-preview" id="look-preview"></div>
+    <h2 class="lk-h2">CITY STYLE</h2><div class="lk-chips" id="look-outfits"></div><div class="lk-chips" id="look-outfitvars"></div>
+    <h2 class="lk-h2">START FROM</h2><div class="lk-chips" id="look-presets"></div>
+    <h2 class="lk-h2">SKIN</h2><div class="lk-chips" id="look-skins"></div>
+    <h2 class="lk-h2">HAIR</h2><div class="lk-chips" id="look-hairs"></div>
+    <h2 class="lk-h2">HAIR COLOUR</h2><div class="lk-chips" id="look-haircolors"></div>
+    <h2 class="lk-h2">MOVES</h2><div class="lk-chips" id="look-moves"><button class="lk-chip" data-emote="bhangra">Bhangra</button><button class="lk-chip" data-emote="disco">Disco</button><button class="lk-chip" data-emote="robot">Robot</button><button class="lk-chip" data-emote="spin">Spin</button><button class="lk-chip" data-emote="moonwalk">Moonwalk</button><button class="lk-chip" data-emote="garba">Garba</button><button class="lk-chip" data-emote="kathak">Kathak</button><button class="lk-chip" data-emote="salsa">Salsa</button><button class="lk-chip" data-emote="breakdance">Break</button><button class="lk-chip" data-emote="ballet">Ballet</button><button class="lk-chip" data-emote="hula">Hula</button><button class="lk-chip" data-emote="jump">Jump</button><button class="lk-chip" data-emote="clap">Clap</button><button class="lk-chip" data-emote="bow">Bow</button></div>
+    <div class="lk-actions-row">
+      <button class="lk-btn lk-btn-ghost" data-close>Not now</button>
+      <button class="lk-btn lk-btn-gold" id="look-save">Save</button>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-gate" hidden>
+    <button class="lk-close" id="gate-close" aria-label="Close">×</button>
+    <p class="lk-eyebrow" id="gate-eyebrow">AIRPORT</p>
+    <h1 class="lk-h1" id="gate-title">Where to?</h1>
+    <p class="lk-sub" id="gate-sub">Free, in-game only. No tickets, no booking.</p>
+    <p class="lk-sub"><label><input type="checkbox" id="gate-pilot"> Pilot it myself - take the controls for the crossing (a minute or two). Leave it off to ride as a passenger.</label></p>
+    <ul class="lk-city-list" id="gate-list"></ul>
+  </aside>
+  <div id="journey" hidden aria-live="polite"><div class="lk-j-sky"></div><div class="lk-j-vehicle" id="j-vehicle"></div><p class="lk-j-text" id="j-text"></p><p class="lk-j-sub" id="j-sub"></p></div>
+
+  <aside class="lk-panel lk-side" id="panel-localmap" hidden>
+    <button class="lk-close" data-close aria-label="Close map">×</button>
+    <p class="lk-eyebrow">FIND YOUR WAY</p><h1 class="lk-h1" id="localmap-title">City map</h1>
+    <p class="lk-sub">White dot: you. Cream dots: named stops. Dark shapes: obstacles. Choose a stop for a direction marker, then walk or drive yourself. This is a bearing, not a clear route or an automatic ride.</p>
+    <canvas id="local-map" width="400" height="400" aria-label="Generated city layout with your position and named stops" role="img"></canvas>
+    <label class="lk-sub" for="localmap-select">Destination</label><select id="localmap-select" class="lk-input"></select>
+    <button class="lk-btn lk-btn-ghost" id="localmap-clear">Clear marker</button>
+  </aside>
+  <button id="map-marker" hidden title="Open destination map"><span id="map-marker-arrow">↑</span><span id="map-marker-text"></span></button>
+
+  <aside class="lk-panel lk-side" id="panel-travel" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">WORLD</p>
+    <h1 class="lk-h1">Pick a place.</h1>
+    <p class="lk-sub">Pins mark the only places built so far. Each has its own live crowd and shared goal; your points carry with you. Land outlines only, no borders drawn. Made with Natural Earth (public domain).</p>
+    <svg id="world-map" class="lk-world-map" viewBox="0 0 360 180" role="group" aria-label="World map with pins for the places you can enter"></svg>
+    <label class="lk-label" for="travel-search">Find a place</label>
+    <input class="lk-input" id="travel-search" type="search" autocomplete="off" placeholder="City, country or landmark" aria-controls="travel-list world-map">
+    <p class="lk-sub" id="travel-results" role="status" aria-live="polite"></p>
+    <ul class="lk-city-list" id="travel-list"></ul>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-passport" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">PASSPORT</p>
+    <h1 class="lk-h1">Landmark stamps.</h1>
+    <p class="lk-sub" id="passport-count">Walk up to a landmark to stamp it, and look for the little traveler hiding nearby. Stamps and travelers both reset when you refresh or close the game.</p>
+    <ul class="lk-city-list" id="passport-list"></ul>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-games" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">MINIGAMES</p>
+    <h1 class="lk-h1">Pick a game.</h1>
+    <p class="lk-sub">Three little games for two. Play against someone else who is around, or the clearly-labeled computer.</p>
+    <div class="lk-gamecards">
+      <button class="lk-gamecard" id="games-ludo" type="button">
+        <strong>Ludo-style race</strong>
+        <span>Four pieces, one dice, exact roll home. Winner earns points: 25 vs a person, 10 vs the computer. Games save on the server.</span>
+      </button>
+      <button class="lk-gamecard" id="games-echo" type="button">
+        <strong>Echo Dance</strong>
+        <span>Watch the moves, tap them back in order. The sequence grows every round. Just for fun, no points; games are not saved.</span>
+      </button>
+      <button class="lk-gamecard" id="games-freeze" type="button">
+        <strong>Freeze Beat</strong>
+        <span>Musical statues: dance, then freeze the instant the beat stops. Close calls within 120ms tie. No points; games are not saved.</span>
+      </button>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-ludo" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">MINIGAME</p>
+    <h1 class="lk-h1">Ludo-style race.</h1>
+    <div id="ludo-menu">
+      <p class="lk-sub">Two players, four pieces each. Roll a 6 to bring a piece out, race round the board and home with an exact roll. Land on another piece to send it back (not on starred squares). A 6, a capture or reaching home gives another roll. Winner earns points: 25 against a person, 10 against the computer. This is a simplified round-track version, not the standard cross board. Active games are saved on the server.</p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="ludo-find">Find a player</button><button class="lk-btn lk-btn-ghost" id="ludo-bot">Play the computer</button></div>
+    </div>
+    <div id="ludo-game" hidden>
+      <p class="lk-sub" id="ludo-status" role="status" aria-live="polite"></p>
+      <svg id="ludo-board" viewBox="0 0 300 300" role="group" aria-label="Ludo board"></svg>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="ludo-roll">Roll dice</button><button class="lk-btn lk-btn-ghost" id="ludo-leave">Leave game</button></div>
+      <p class="lk-sub" id="ludo-dice"></p>
+      <ul class="lk-ludo-log" id="ludo-log"></ul>
+    </div>
+    <p class="lk-sub" style="margin-top:10px"><a href="#" id="ludo-togames">All games</a> · <a href="#" id="ludo-toecho">Echo Dance</a> · <a href="#" id="ludo-tofreeze">Freeze Beat</a></p>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-echo" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">MINIGAME</p>
+    <h1 class="lk-h1">Echo Dance.</h1>
+    <div id="echo-menu">
+      <p class="lk-sub">Watch the dance moves, then tap them back in the same order. Both dancers get the same sequence each round; it grows by one move every round. If one of you slips, the other wins. Just for fun - no points. Games are not saved; a restart ends them.</p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="echo-find">Find a player</button><button class="lk-btn lk-btn-ghost" id="echo-bot">Play the computer</button></div>
+      <p class="lk-sub" style="margin-top:10px"><a href="#" id="echo-togames">All games</a> · <a href="#" id="echo-toludo">Ludo-style race</a> · <a href="#" id="echo-tofreeze">Freeze Beat</a></p>
+    </div>
+    <div id="echo-game" hidden>
+      <p class="lk-sub" id="echo-status" role="status" aria-live="polite"></p>
+      <p id="echo-big" style="min-height:64px;font-size:34px;font-weight:800;text-align:center;margin:8px 0;color:#ffd24a"></p>
+      <div id="echo-pad"></div>
+      <p class="lk-sub" id="echo-picked" style="text-align:center"></p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="echo-submit">Submit</button><button class="lk-btn lk-btn-ghost" id="echo-clear">Clear</button><button class="lk-btn lk-btn-ghost" id="echo-leave">Leave game</button></div>
+      <ul class="lk-ludo-log" id="echo-log"></ul>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-freeze" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">MINIGAME</p>
+    <h1 class="lk-h1">Freeze Beat.</h1>
+    <div id="freeze-menu">
+      <p class="lk-sub">Musical statues. Dance while the beat plays - the instant it stops, tap FREEZE. Fastest reaction takes the round; freeze too early and you lose it. First to 3 rounds wins. Your reaction is measured on your own device from the moment the stop sign appears, and the stop is always shown on screen (sound is optional). Close calls within 120ms tie. Timing can vary with your device and connection; no stakes. Just for fun, no points. Games are not saved.</p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="freeze-find">Find a player</button><button class="lk-btn lk-btn-ghost" id="freeze-bot">Play the computer</button></div>
+      <p class="lk-sub" style="margin-top:10px"><a href="#" id="freeze-togames">All games</a> · <a href="#" id="freeze-toludo">Ludo-style race</a> · <a href="#" id="freeze-toecho">Echo Dance</a></p>
+    </div>
+    <div id="freeze-game" hidden>
+      <p class="lk-sub" id="freeze-status" role="status" aria-live="polite"></p>
+      <p id="freeze-big" role="status" aria-live="assertive"></p>
+      <p class="lk-sub" id="freeze-score" style="text-align:center"></p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold lk-freeze-tap" id="freeze-tap" disabled>FREEZE!</button></div>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-ghost" id="freeze-sound">Sound: off</button><button class="lk-btn lk-btn-ghost" id="freeze-leave">Leave game</button></div>
+      <ul class="lk-ludo-log" id="freeze-log"></ul>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-voice" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">VOICE (BETA)</p>
+    <h1 class="lk-h1">City voice room.</h1>
+    <div id="voice-intro">
+      <p class="lk-sub">Talk with up to <span id="voice-max-n">8</span> people in this city. Your microphone stays off until you tap Join and allow it in your browser; you can also join listen-only. Voice goes directly between players' devices, so the other people in the room (and their browsers) can see your network IP address, which can reveal your rough location and internet provider. It is not recorded or stored by this site, and a Cloudflare STUN server is used to find a route (it sees your IP address too). Anyone in the room can hear you, so be kind: you can mute or report anyone. Muting stops sending your voice but keeps your microphone connected, so your browser may keep showing its mic-in-use light until you leave voice. Reports are saved for the site owner to review. Some networks block direct connections, so you may not be able to hear everyone.</p>
+      <div class="lk-ludo-actions"><button class="lk-btn lk-btn-gold" id="voice-join">Join with mic</button><button class="lk-btn lk-btn-ghost" id="voice-listen">Listen only</button></div>
+    </div>
+    <div id="voice-live" hidden>
+      <p class="lk-sub" id="voice-status" role="status" aria-live="polite"></p>
+      <ul class="lk-voice-list" id="voice-list"></ul>
+      <div class="lk-ludo-actions"><button class="lk-btn" id="voice-tap" hidden>Turn on sound</button><button class="lk-btn lk-btn-ghost" id="voice-mute">Mute mic</button><button class="lk-btn lk-btn-ghost" id="voice-leave">Leave voice</button></div>
+    </div>
+  </aside>
+
+  <aside class="lk-panel lk-side" id="panel-help" hidden>
+    <button class="lk-close" data-close aria-label="Close">×</button>
+    <p class="lk-eyebrow">HOW TO PLAY</p>
+    <h1 class="lk-h1">Collect as you explore.</h1>
+    <p class="lk-sub">Flowers, mangoes, jackfruit, umbrellas. Walk over anything with a number on it and the points are yours.</p>
+    <button class="lk-btn" id="btn-events" type="button">See stage events</button>
+    <ul class="lk-help-list">
+      <li>🌼 Flower - 5 points</li><li>🥭 Mango - 10 points</li>
+      <li>🍈 Jackfruit - 15 points</li><li>☂️ Umbrella - 25 points</li>
+    </ul>
+    <p class="lk-sub">Move with WASD or the arrow keys (Shift to run), drag to look around. Points count for your place and, if you picked one, your district.</p>
+    <p class="lk-eyebrow">CREDITS AND NOTICES</p>
+    <p class="lk-sub">Independent fan project inspired by kerala.dhilber.com. Not affiliated with or endorsed by it. The world, its 3D models and its images are original work made for this project, built with the three.js rendering library (MIT licence) and the map data credited below. Points save to this site's own backend. Included: minigames (a Ludo-style race, Echo Dance, Freeze Beat), city stage events, an opt-in voice chat beta (your mic stays off unless you choose; others in the room can see your IP address), drivable vehicles (low-poly, other players see you), and inter-city travel with an optional pilot-it-yourself crossing (a labelled schematic open sea/sky - just you on the crossing). Not included: Google sign-in, text chat, friend lists.</p>
+    <p class="lk-eyebrow">DATA AND MAP SOURCES</p>
+    <p class="lk-sub">This build includes map data from: OpenStreetMap (&copy; OpenStreetMap contributors, Open Database License 1.0 - openstreetmap.org/copyright; road extracts in the ?proto=ny and ?proto=delhi prototypes, offered under the ODbL per their file headers; and the sourced river centreline courses in nine cities - Thames, Seine, Moskva, Spree, Tiber, Rimac, Chao Phraya, Ciliwung, Mto Nairobi - each marked in the source with its OpenStreetMap relation); GSHHG 2.3.7 shoreline data (&copy; NOAA / University of Hawaii, LGPLv3 or later - licence texts in the project repository; shoreline research lines only); Natural Earth 10m physical data (public domain). Rendering: three.js (&copy; Three.js authors, MIT license). All city layouts are stylized gameplay arrangements, not surveyed maps.</p>
+  </aside>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

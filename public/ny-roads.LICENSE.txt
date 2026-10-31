@@ -1,0 +1,4 @@
+NY Midtown road slice (ny-roads.json)
+Data: (c) OpenStreetMap contributors - https://www.openstreetmap.org/copyright
+License: Open Database License (ODbL) 1.0 - https://opendatacommons.org/licenses/odbl/1.0/
+This file is a derivative extract (road geometries, Midtown Manhattan, bounds 40.7489,-73.9841,40.7614,-73.9776, timestamp_osm_base 2026-10-26T08:12:50Z) of the OpenStreetMap database, simplified to 5-decimal coordinates. It is offered under the ODbL (share-alike). Source query: Overpass API, [out:json];way["highway"](bounds);out geom;
