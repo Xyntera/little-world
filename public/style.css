@@ -488,3 +488,8 @@ body:has(#discovery-question:not([hidden])) #btn-ride {visibility:hidden;}
 /*300 visible active-taxi exit, same touch target as nearby ride controls. */
 #btn-endtaxi { min-height:44px;max-width:104px;height:auto;padding:8px 12px;white-space:normal;line-height:1.2;background:#f3d48b;color:#173d34; }
 #btn-endtaxi[hidden] { display:none; }
+
+/* Echo feedback occupies its own flow space, never the recall controls. */
+#echo-feedback #toasts { position:static;transform:none;width:auto;max-width:100%;margin:0 0 14px;align-items:stretch; }
+#echo-feedback #toasts .lk-toast { max-width:100%; }
+#echo-submit:disabled { opacity:.4;cursor:not-allowed;filter:grayscale(1); }
