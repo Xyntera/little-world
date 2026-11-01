@@ -436,6 +436,9 @@ let legacyCollects = 0; const rejects = { near: 0, fast: 0, ping: 0 };
 let voiceDiagN = 0;
 const voiceRooms = new Map(), voiceOf = new Map(), voiceRate = new Map();
 function voiceSweep(now) {
+  //290 expired transient diagnostics/rate windows must not grow across departed players.
+  for (const [pid, rate] of voiceRate) if (now - rate.t > 1000) voiceRate.delete(pid);
+  for (const [pid, at] of voiceDrops) if (now - at >= 60000) voiceDrops.delete(pid);
   for (const [room, m] of voiceRooms) {
     for (const [pid, v] of m) if (now - v.last > VOICE_TTL) { m.delete(pid); voiceOf.delete(pid); }
     if (!m.size) voiceRooms.delete(room);
@@ -524,7 +527,8 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
 function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname === '/' ? '/index.html' : pathname);
   const file = path.normalize(path.join(PUBLIC_DIR, rel));
-  if (!file.startsWith(PUBLIC_DIR)) { send(res, 403, { error: 'forbidden' }); return; }
+  const relative = path.relative(PUBLIC_DIR, file); //298 a sibling named public-* is outside too, despite sharing the string prefix
+  if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) { send(res, 403, { error: 'forbidden' }); return; }
   fs.readFile(file, (err, buf) => {
     if (err) { send(res, 404, { error: 'not found' }); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': /\.(js|html|css)$|\/$/.test(file) ? 'no-cache' : 'public, max-age=3600' });
@@ -846,7 +850,7 @@ async function handleApi(req, res, url, parts) {
       const now = Date.now();
       const city = CITIES.some(c => c[0] === url.searchParams.get('city')) ? url.searchParams.get('city') : (player.city || 'kerala');
       const sl = slotsFor(player.id, city, now);
-      return send(res, 200, { city, radius: PICK_RADIUS, slots: sl.map(x => slotView(x, city)) });
+      return send(res, 200, { city, radius: PICK_RADIUS, slots: sl.map(x => Object.assign(slotView(x, city), { readyIn: Math.max(0, x.ready - now) })) });
     }
     if (req.method === 'POST' && action === 'collect') {
       const body = await readBody(req);
@@ -1029,9 +1033,9 @@ async function main() {
   await loadLudo();
   await loadEvents();
   const server = http.createServer(async (req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    const parts = url.pathname.split('/').filter(Boolean);
-    try {
+    try { //297 malformed request URLs/Host must receive400, not reject outside the handler and exit the server
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const parts = url.pathname.split('/').filter(Boolean);
       if (parts[0] === 'api') return await handleApi(req, res, url, parts);
       if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res, url.pathname);
       return send(res, 405, { error: 'method not allowed' });
