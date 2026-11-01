@@ -5,7 +5,7 @@ export function mapRoads(w) {
   // Keep copies so map display cannot change shared taxi-stop metadata.
   return (w.roads || []).map(r => ({ ...r }));
 }
-export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkName, getDiscovery, onChoose }) {
+export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkName, getDiscovery, getTaxiPickup, onChoose }) {
   const canvas = document.getElementById('local-map'), ctx = canvas.getContext('2d');
   let selected = null, cityKey = null, bounds = null;
   let zoom = 1, center = null, drag = null, showGuide=false;
@@ -38,7 +38,8 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     const name = stopName(q);
     return places.filter(p => stopName(p) === name).length > 1 ? name + ' (' + (q.z < 0 ? 'north' : 'south') + (q.x < 0 ? 'west' : 'east') + ')' : name;
   };
-  const choices = w => [...targets(w),...(getDiscovery?getDiscovery():[]).map(q=>({...q,name:'Discovery '+q.number+': '+(q.name||'Story spot'),discovery:true}))];
+  const stageStop=w=>w.stage?{x:w.stage.x,z:w.stage.z,name:'Stage',r:2,stage:true}:null;
+  const choices = w => [...targets(w),...(w.stage?[stageStop(w)]:[]),...(getDiscovery?getDiscovery():[]).map(q=>({...q,name:'Discovery '+q.number+': '+(q.name||'Story spot'),discovery:true}))];
   const clear = () => { selected = null; document.getElementById('map-marker').hidden = true; };
   function refresh(key) {
     const w = getWorld(); if (!w) return;
@@ -88,6 +89,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     if(w.pool){const q=w.pool;ctx.fillStyle='#4d9dba';if(q.x!==undefined&&q.z!==undefined){ctx.fillRect(X(q.x-q.hw),Z(q.z-q.hd),q.hw*2*scale,q.hd*2*scale);}}
     ctx.fillStyle='#f3ddab';ctx.font='bold 11px system-ui';for(const q of targets(w)){ctx.beginPath();ctx.arc(X(q.x),Z(q.z),3,0,Math.PI*2);ctx.fill();}
     const trail=getDiscovery?getDiscovery():[];trailNote.hidden=!trail.length;trailNote.textContent='Discovery 1-3: gold ring = next, green = found. Fictional game spots only; no route or real access guarantee.';for(const q of trail){ctx.beginPath();ctx.arc(X(q.x),Z(q.z),q.current?10:7,0,Math.PI*2);ctx.fillStyle=q.found?'#83c69b':'#173d34';ctx.fill();ctx.strokeStyle=q.current?'#ffe188':'#c7ceb8';ctx.lineWidth=q.current?3:1;ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(q.number),X(q.x),Z(q.z));ctx.textAlign='start';ctx.textBaseline='alphabetic';}
+    const pickup=getTaxiPickup&&getTaxiPickup();if(pickup){ctx.strokeStyle='#ffd23f';ctx.lineWidth=3;ctx.strokeRect(X(pickup.x)-7,Z(pickup.z)-7,14,14);}
     if(selected){ctx.strokeStyle='#ffd23f';ctx.lineWidth=3;ctx.beginPath();ctx.arc(X(selected.x),Z(selected.z),8,0,Math.PI*2);ctx.stroke();}
     ctx.fillStyle='#fff';ctx.strokeStyle='#0d3f36';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(p.x),Z(p.z),5,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.restore();
@@ -100,15 +102,20 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
   function tick(key, yaw) {
     if(cityKey!==key){clear();cityKey=key;bounds=null;zoom=1;center=null;showGuide=false;}
     if(selected?.discovery&&!(getDiscovery?getDiscovery():[]).some(q=>q.number===selected.number&&q.x===selected.x&&q.z===selected.z))clear();
-    const el=document.getElementById('map-marker'),p=getPlayer();
-    if(selected&&p){const dx=selected.x-p.x,dz=selected.z-p.z,d=Math.hypot(dx,dz);el.hidden=false;
-      document.getElementById('map-marker-text').textContent=selected.name+' · '+Math.round(d*(selected.metersPerUnit||(getWorld()||{}).mapMetersPerUnit||1))+' m'+(selected.discovery?' direct · not a route':'')+(d<=(selected.discovery?selected.r:getWorld().mapPlaces?Math.max(.8,selected.r||0):Math.max(5,selected.r||0))?' · nearby':'');
+    const el=document.getElementById('map-marker'),p=getPlayer(),stage=getWorld()?.stage;
+    if(selected?.taxiArrival&&p&&Math.hypot(p.x-selected.x,p.z-selected.z)<=Math.max(3,Math.min(5,selected.r||0)))clear();
+    if(selected?.stage&&p&&stage&&Math.abs(p.x-stage.x)<stage.w/2&&Math.abs(p.z-stage.z)<stage.d/2)clear(); //292 arrival completes stage navigation
+    const pickup=getTaxiPickup&&getTaxiPickup(),nav=pickup?{...pickup,name:'Taxi pickup',pickup:true}:selected;
+    if(nav&&p){const dx=nav.x-p.x,dz=nav.z-p.z,d=Math.hypot(dx,dz);el.hidden=false;
+      document.getElementById('map-marker-text').textContent=nav.name+' · '+Math.round(d*(nav.metersPerUnit||(getWorld()||{}).mapMetersPerUnit||1))+' m'+(nav.discovery||nav.stage||nav.pickup||nav.taxiArrival?' direct · not a route':'')+(nav.pickup?' · walk to the cab':nav.taxiArrival?' · finish on foot':d<=(nav.discovery?nav.r:getWorld().mapPlaces?Math.max(.8,nav.r||0):Math.max(5,nav.r||0))?' · nearby':'');
       document.getElementById('map-marker-arrow').style.transform='rotate('+((Math.atan2(dx,dz)-yaw)*-180/Math.PI)+'deg)';
     }else el.hidden=true;
     if (el && !el.hidden) el.style.visibility = document.querySelector('.lk-side:not([hidden])') ? 'hidden' : 'visible';
     if(!document.getElementById('panel-localmap').hidden)draw();
   }
-  return {refresh,tick,clear};
+  function chooseStage(key){const q=stageStop(getWorld());if(!q)return false;refresh(key);selected=q;onChoose(q);draw();return true;}
+  function chooseTaxiArrival(key,target){refresh(key);selected={...target,name:target.taxiLabel||stopName(target),taxiArrival:true};draw();}
+  return {refresh,tick,clear,chooseStage,chooseTaxiArrival};
 }
 
 //218 read-only embedded local preview. Shares world metadata, never moves player or changes full-map state.
