@@ -484,3 +484,7 @@ body:has(#discovery-question:not([hidden])) #btn-ride {visibility:hidden;}
 #stage-chip span { flex-basis:100%;overflow-wrap:anywhere; }
 #stage-chip button { min-height:44px;padding:8px 14px;border:0;border-radius:14px;background:#ffd24a;color:#3a2c00;font-weight:600;cursor:pointer; }
 @media(max-width:640px) { #stage-chip { left:12px;right:92px;transform:none;max-width:none; } }
+
+/*300 visible active-taxi exit, same touch target as nearby ride controls. */
+#btn-endtaxi { min-height:44px;max-width:104px;height:auto;padding:8px 12px;white-space:normal;line-height:1.2;background:#f3d48b;color:#173d34; }
+#btn-endtaxi[hidden] { display:none; }
