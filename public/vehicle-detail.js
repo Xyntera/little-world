@@ -34,6 +34,14 @@ export function detailVehicle(root,kind){
  // Silver wheel hub faces with dark center caps, same wheel radius/centers; hub planes sit 0.0003u beyond tire face.
  const wheels=[];root.traverse(o=>{if(o.isMesh&&o.geometry?.type==='CylinderGeometry'&&Math.abs(o.rotation.z-Math.PI/2)<.01)wheels.push(o);});
  for(const wheel of wheels){const {x,y,z}=wheel.position,s=Math.sign(x)||1,r=wheel.geometry.parameters.radiusTop*.58;
+  // Upper arch strips frame the tire without changing its radius or overall vehicle bounds.
+  const positions=[],outer=wheel.geometry.parameters.radiusTop+.065,inner=outer-.055;
+  for(let i=0;i<8;i++){const a=i*Math.PI/8,b=(i+1)*Math.PI/8;
+   const face=[[a,inner],[a,outer],[b,outer],[a,inner],[b,outer],[b,inner]];if(s>0){[face[1],face[2]]=[face[2],face[1]];[face[4],face[5]]=[face[5],face[4]];}
+   for(const [t,rr] of face)positions.push(x+s*.1399,y+Math.sin(t)*rr,z+Math.cos(t)*rr);
+  }
+  const archGeo=new THREE.BufferGeometry();archGeo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));archGeo.computeVertexNormals();
+  const arch=new THREE.Mesh(archGeo,mat(trim));d.add(arch);
   const hub=new THREE.Mesh(new THREE.CircleGeometry(r,10),mat(chrome));hub.rotation.y=s*Math.PI/2;hub.position.set(x+s*.1402,y,z);d.add(hub);
   const cap=new THREE.Mesh(new THREE.CircleGeometry(r*.3,8),mat(rubber));cap.rotation.y=s*Math.PI/2;cap.position.set(x+s*.1403,y,z);d.add(cap);
  }
