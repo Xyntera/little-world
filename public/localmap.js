@@ -17,7 +17,7 @@ export function mapCoast(w) {
   const outer=sign>0?Math.max(...edge.map(p=>p[eastWest?0:1]))+18:Math.min(...edge.map(p=>p[eastWest?0:1]))-18;
   const ring=[...edge,eastWest?[outer,sf.lim]:[sf.lim,outer],eastWest?[outer,-sf.lim]:[-sf.lim,outer]];coastCache.set(w,ring);return ring;
 }
-export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkName, getDiscovery, getTaxiPickup, onChoose }) {
+export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkName, getDiscovery, getTaxiPickup, getTaxiRoute, onChoose }) {
   const canvas = document.getElementById('local-map'), ctx = canvas.getContext('2d');
   let selected = null, cityKey = null, bounds = null;
   let zoom = 1, center = null, drag = null, showGuide=false;
@@ -33,6 +33,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
   const guideNote=document.createElement('p');guideNote.className='lk-sub';guideNote.hidden=true;canvas.after(guideNote);
   const zoomLabel=document.createElement('span');zoomLabel.setAttribute('aria-live','polite');controls.append(zoomLabel);canvas.before(controls);
   const trailNote=document.createElement('p');trailNote.className='lk-sub';trailNote.id='map-discovery-note';trailNote.hidden=true;canvas.after(trailNote);
+  const routeNote=document.createElement('p');routeNote.className='lk-sub';routeNote.hidden=true;routeNote.textContent='Orange dashed: taxi plan, may change or stop early. Final walk not routed.';canvas.after(routeNote);
   const unitScale=()=>bounds?Math.min(352/(bounds[1]-bounds[0]),352/(bounds[3]-bounds[2]))*zoom:1;
   function boundCenter(){if(!bounds||!center)return;const [a,b,c,d]=bounds;center.x=Math.max(a,Math.min(b,center.x));center.z=Math.max(c,Math.min(d,center.z));}
   canvas.style.touchAction='none';canvas.style.cursor='grab';
@@ -64,7 +65,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     if (cityKey !== key) { clear(); cityKey = key; zoom=1;center=null;showGuide=false; }
     document.getElementById('localmap-title').textContent = getCityName() + ' map';
     canvas.setAttribute('aria-label',w.mapPlaces?'Partial mapped geography with water, landmarks and your position':'Generated city layout with your position and named stops. Tap a named stop pin for a bearing; use the destination list for overlapping pins.');
-    const desc=document.querySelector('#panel-localmap .lk-sub');if(desc){if(!desc.dataset.original)desc.dataset.original=desc.textContent;desc.textContent=w.mapPlaces?'White: you. Cream: mapped ways and landmarks. Blue: water. Choose a landmark for a bearing, not a routed path. Gray: game buildings. Dashed pink: original outlines where widened. Drag to look around. Partial local preview; no access guarantee.':desc.dataset.original+' Tap a stop pin, or use the list for overlapping pins. Purple square: stage.'+(mapCoast(w)?' Blue: schematic water edge, not swimming depth.':'');}
+    const desc=document.querySelector('#panel-localmap .lk-sub');if(desc){if(!desc.dataset.original)desc.dataset.original=desc.textContent;desc.textContent=w.mapPlaces?'White: you. Cream: mapped ways and landmarks. Blue: water. Choose a landmark for a bearing, not a routed path. Gray: game buildings. Dashed pink: original outlines where widened. Drag to look around. Partial local preview; no access guarantee.':desc.dataset.original+' Tap a stop pin, or use the list for overlapping pins. Purple square: stage.'+(mapCoast(w)?' Blue: schematic water edge, not swimming depth.':'')+(w.mapRivers?.length?' Blue bands: game rivers. Road overlaps are schematic, not checked crossings.':'');}
 
     const select = document.getElementById('localmap-select'); select.replaceChildren();
     const first = document.createElement('option'); first.value = ''; first.textContent = w.mapPlaces ? 'Choose a map landmark' : 'Choose a named stop'; select.append(first);
@@ -90,6 +91,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     const polygon=(ring,color)=>{if(!ring||ring.length<3)return;ctx.fillStyle=color;ctx.beginPath();ring.forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));ctx.closePath();ctx.fill();};
     for(const ring of w.mapWater||[])polygon(ring,'#3d829c');
     const coast=mapCoast(w);if(coast)polygon(coast,'#3d829c');
+    for(const ring of w.mapRivers||[])polygon(ring,'#3d829c');
     ctx.strokeStyle='#b8b7a6';ctx.lineWidth=Math.max(1,2*scale);
     for(const r of mapRoads(w)){ctx.lineWidth=r.pts?Math.max(.65,1.2*scale):Math.max(2,6*scale);ctx.beginPath();if(r.pts){r.pts.forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));}else{const alongZ=r.ax==='x';if(alongZ){ctx.moveTo(X(r.c),Z(r.from));ctx.lineTo(X(r.c),Z(r.to));}else{ctx.moveTo(X(r.from),Z(r.c));ctx.lineTo(X(r.to),Z(r.c));}}ctx.stroke();}
     for(const ring of w.mapBuildings||[])polygon(ring,'#8d927c');
@@ -111,6 +113,7 @@ export function createLocalMap({ getWorld, getPlayer, getCityName, getLandmarkNa
     ctx.fillStyle='#f3ddab';ctx.font='bold 11px system-ui';for(const q of targets(w)){ctx.beginPath();ctx.arc(X(q.x),Z(q.z),3,0,Math.PI*2);ctx.fill();}
     const stage=stageStop(w);if(stage){ctx.fillStyle='#dfaaea';ctx.fillRect(X(stage.x)-4,Z(stage.z)-4,8,8);}
     const trail=getDiscovery?getDiscovery():[];trailNote.hidden=!trail.length;trailNote.textContent='Discovery 1-3: gold ring = next, green = found. Fictional game spots only; no route or real access guarantee.';for(const q of trail){ctx.beginPath();ctx.arc(X(q.x),Z(q.z),q.current?10:7,0,Math.PI*2);ctx.fillStyle=q.found?'#83c69b':'#173d34';ctx.fill();ctx.strokeStyle=q.current?'#ffe188':'#c7ceb8';ctx.lineWidth=q.current?3:1;ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 10px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(q.number),X(q.x),Z(q.z));ctx.textAlign='start';ctx.textBaseline='alphabetic';}
+    const route=getTaxiRoute&&getTaxiRoute();routeNote.hidden=!(route&&route.length>1);if(route&&route.length>1){ctx.strokeStyle='#ffb25e';ctx.lineWidth=4;ctx.lineJoin='round';ctx.setLineDash([7,4]);ctx.beginPath();route.forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));ctx.stroke();ctx.setLineDash([]);}
     const pickup=getTaxiPickup&&getTaxiPickup();if(pickup){ctx.strokeStyle='#ffd23f';ctx.lineWidth=3;ctx.strokeRect(X(pickup.x)-7,Z(pickup.z)-7,14,14);}
     if(selected){ctx.strokeStyle='#ffd23f';ctx.lineWidth=3;ctx.beginPath();ctx.arc(X(selected.x),Z(selected.z),8,0,Math.PI*2);ctx.stroke();}
     ctx.fillStyle='#fff';ctx.strokeStyle='#0d3f36';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(p.x),Z(p.z),5,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -149,6 +152,7 @@ export function drawExploreMap(canvas,w,p){
   const poly=(ring,color)=>{if(!ring||ring.length<3)return;ctx.fillStyle=color;ctx.beginPath();ring.forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));ctx.closePath();ctx.fill();};
   for(const ring of w.mapWater||[])poly(ring,'#3d829c');
   const coast=mapCoast(w);if(coast)poly(coast,'#3d829c');
+  for(const ring of w.mapRivers||[])poly(ring,'#3d829c');
   ctx.strokeStyle='#d8d0b8';
   for(const r of mapRoads(w)){ctx.lineWidth=r.pts?7:10;ctx.beginPath();if(r.pts)r.pts.forEach(([x,z],i)=>i?ctx.lineTo(X(x),Z(z)):ctx.moveTo(X(x),Z(z)));else if(r.ax==='x'){ctx.moveTo(X(r.c),Z(r.from));ctx.lineTo(X(r.c),Z(r.to));}else{ctx.moveTo(X(r.from),Z(r.c));ctx.lineTo(X(r.to),Z(r.c));}ctx.stroke();}
   if(w.mapBuildings){for(const ring of w.mapBuildings)poly(ring,'#8d927c');}
@@ -158,4 +162,4 @@ export function drawExploreMap(canvas,w,p){
   ctx.fillStyle='#f3ddab';for(const q of w.mapPlaces||w.places||[]){ctx.beginPath();ctx.arc(X(q.x),Z(q.z),5,0,Math.PI*2);ctx.fill();}
   ctx.fillStyle='#fff';ctx.strokeStyle='#0d3f36';ctx.lineWidth=3;ctx.beginPath();ctx.arc(W/2,H/2,7,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff';ctx.font='bold 22px system-ui';ctx.fillText('N ↑',16,30);
-}
+       }
