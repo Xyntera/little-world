@@ -119,10 +119,10 @@ function setStage(s) {
 function setPanel(p) {
   state.panel = state.panel === p ? 'none' : p;
   if (state.panel !== 'none' && typeof hideArrival === 'function') hideArrival(); // a side panel owns the screen; don't float the arrival banner over it
-  (state.panel==='voice'?$('voice-feedback'):toastHome).appendChild($('toasts'));
+  (state.panel==='voice'?$('voice-feedback'):state.panel==='echo'?$('echo-feedback'):toastHome).appendChild($('toasts'));
   $('toasts').classList.toggle('is-panel', state.panel !== 'none'); // panels own the screen: decorative toasts hide behind them, must-see feedback (errors, refusals, confirmations) still shows
   $('panel-explore').hidden = state.panel !== 'explore';
-  $('explore-discovery').hidden=!discovery.available;$('explore-discovery').textContent=state._protoPrague?'Open bridge discovery walk':state.city==='paris'?'Open Paris discovery walk':state.city==='tokyo'?'Open Tokyo discovery walk':'Open Sydney discovery walk';
+  $('explore-discovery').hidden=!discovery.available;$('explore-discovery').textContent=state._protoPrague?'Open bridge discovery walk':state.city==='cairo'?'Open Cairo discovery walk':state.city==='london'?'Open London discovery walk':state.city==='paris'?'Open Paris discovery walk':state.city==='tokyo'?'Open Tokyo discovery walk':'Open Sydney discovery walk';
   $('panel-discovery').hidden=state.panel!=='discovery';
   if(state.panel==='explore')drawExploreMap($('explore-map-preview'),worldData,player);
   if(state.panel==='explore'){
@@ -169,16 +169,23 @@ const pickups = [];
 const labelPool = [];
 let rainPts = null;
 
+const labelMeasure = document.createElement('canvas').getContext('2d');
 function makeLabel(cls, html) {
   const el = document.createElement('div');
   el.className = 'lk-label3d ' + cls; el.innerHTML = html;
   $('labels').appendChild(el);
-  return { el, pos: new THREE.Vector3(), visible: true };
+  labelMeasure.font = '700 14px system-ui, sans-serif';
+  return { el, pos: new THREE.Vector3(), visible: true, width: Math.ceil(labelMeasure.measureText(el.textContent).width) + 26, height: 30, screen: null };
 }
 const _v = new THREE.Vector3();
-function placeLabel(l, x, y, z, inset) {
+function placeLabel(l, x, y, z, inset, occupied) {
+  l.screen = null;
   _v.set(x, y, z).project(camera);
   if (_v.z > 1 || (inset && Math.abs(_v.x) > inset)) { l.el.style.display = 'none'; return; }
+  const px=(_v.x*.5+.5)*innerWidth, py=(-_v.y*.5+.5)*innerHeight;
+  const rect={left:px-l.width/2,right:px+l.width/2,top:py-l.height,bottom:py};
+  if(occupied && (rect.left<8||rect.right>innerWidth-8||rect.top<8||rect.bottom>innerHeight-8||occupied.some(r=>rect.left<r.right+6&&rect.right>r.left-6&&rect.top<r.bottom+6&&rect.bottom>r.top-6))){l.el.style.display='none';return;}
+  l.screen=rect;if(occupied)occupied.push(rect);
   l.el.style.display = 'block';
   l.el.style.left = ((_v.x * .5 + .5) * 100) + '%';
   l.el.style.top = ((-_v.y * .5 + .5) * 100) + '%';
@@ -276,7 +283,7 @@ function pickupModel(type) {
   return g;
 }
 function buildBalls() {
-  for (const b of balls) { scene.remove(b.mesh); disposeModel(b.mesh); }
+  for (const b of balls) { scene.remove(b.mesh); disposeVehicleModel(b.mesh); }
   balls = (worldData.beachBalls || []).map(d => { const mesh = beachBallModel(); mesh.position.set(d.x, worldData.groundY(d.x, d.z) + .5, d.z); scene.add(mesh); return { id: d.id, x: d.x, z: d.z, vx: 0, vz: 0, owner: null, claimT: 0, mesh }; });
 }
 function adoptBalls(list) { // 118v: server-relayed ball states; my own owned balls stay locally simulated
@@ -394,7 +401,7 @@ function seedPickups(cx, cz, n, radius) {
   }
 }
 function disposeModel(m) { m.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-function removePickup(p) { scene.remove(p.model); disposeModel(p.model); if (p.label && p.label.el) p.label.el.remove(); const i = pickups.indexOf(p); if (i >= 0) pickups.splice(i, 1); }
+function removePickup(p) { scene.remove(p.model); disposeVehicleModel(p.model); if (p.label && p.label.el) p.label.el.remove(); const i = pickups.indexOf(p); if (i >= 0) pickups.splice(i, 1); }
 /* ---------- 118v: playable beach balls (push physics; sync via ping/poll relay) ---------- */
 let balls = [];
 function beachBallModel() {
@@ -576,7 +583,7 @@ function buildVehicle(kind, color) {
   return g;
 }
 const VEH_COLORS = ['#d94b3d', '#2f7fd1', '#e8b923', '#2fa86a', '#8a4fc7'];
-// Vehicle builders own their geometry/materials; parked models are reused until clearParked.
+// Vehicle, pickup and beach-ball builders own their geometry/materials; parked models are reused until clearParked.
 function disposeVehicleModel(root) {
   const geometries = new Set(), materials = new Set();
   root.traverse(o => { if(o.geometry)geometries.add(o.geometry); if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>materials.add(m)); });
@@ -1077,7 +1084,7 @@ function popup(text, x, z) {
 function bindInput() {
   const canvas = $('canvas');
   addEventListener('keydown', e => {
-    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.target && e.target.closest && e.target.closest('input,select,textarea,button,a,[role="button"],[contenteditable]:not([contenteditable="false"])')) return; // interactive UI owns its keyboard activation, not world shortcuts
     keys[e.key.toLowerCase()] = true;
     if (!e.repeat && state.stage === 'play' && !/INPUT|TEXTAREA/.test((e.target || {}).tagName || '')) { if (e.key.toLowerCase() === 'e') useParkedButton(); else if (e.key.toLowerCase() === 'f') toggleFP(); else if (e.key.toLowerCase() === 'c') toggleRide('car'); else if (e.key.toLowerCase() === 'x') toggleRide('scooter'); else if (e.key.toLowerCase() === 'v') toggleRide('roadster'); else if (e.key.toLowerCase() === 'b') toggleRide('boat'); else if (e.key.toLowerCase() === 'n') toggleRide('suv'); else if (e.key.toLowerCase() === 'm') toggleRide('supercar'); }
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(e.key.toLowerCase())) e.preventDefault();
@@ -1478,7 +1485,10 @@ function updateLabels() {
     if (d2 > 784 || pdx * pdx + pdz * pdz < 30.25) p.label.el.style.display = 'none'; else near.push([d2, p]);
   }
   near.sort((a, b) => a[0] - b[0]);
-  near.forEach(([, p], i) => { if (i < 3) placeLabel(p.label, p.x, p.model.position.y + 1.05, p.z, .82); else p.label.el.style.display = 'none'; });
+  const occupied=[];
+  if(player?.nameTag?.el.style.display!=='none'&&player?.nameTag?.screen)occupied.push(player.nameTag.screen);
+  for(const R of remotes.values())if(R.tag.el.style.display!=='none'&&R.tag.screen)occupied.push(R.tag.screen);
+  let shown=0;for(const [,p] of near){if(shown<3){placeLabel(p.label,p.x,p.model.position.y+1.05,p.z,.82,occupied);if(p.label.screen)shown++;}else p.label.el.style.display='none';}
 }
 
 /* ---------- stage: perform + watch ---------- */
@@ -1569,7 +1579,7 @@ async function pollLiveShow() {
 /* ---------- main loop ---------- */
 let lastT = 0;
 const discovery=createDiscovery({getPlayer:()=>player,getWorld:()=>worldData,getCity:()=>state._protoPrague?'prague':state.city,onMap:()=>setPanel('localmap'),onReveal:(seen,finished,trail)=>{
- $('discovery-trail-name').textContent=discovery.city==='paris'?"THE GARDENER'S SKETCHBOOK":discovery.city==='tokyo'?"THE LANTERN-MAKER'S PAPER LIGHT":discovery.city==='sydney'?"THE STAGEHAND'S PAPER BOAT":"BRIDGE KEEPER'S TRAIL";const body=$('discovery-stories');body.replaceChildren();for(const [i,item] of trail.entries()){const card=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=(item.found?'Found · ':item.current?'Next · ':'Locked · ')+item.title;p.textContent=item.found?seen[i].story:item.current?item.clue:'Find the earlier fragment to reveal this story.';card.className='discovery-journal-card';card.append(h,p);if(item.found){const note=document.createElement('p');note.className='discovery-observation';note.textContent='You noticed: '+seen[i].observation;card.append(note);}body.append(card);}if(finished){const ending=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');ending.className='discovery-journal-card discovery-ending';h.textContent=discovery.city==='paris'?"The gardener's last page":discovery.city==='tokyo'?"The lantern-maker's last note":discovery.city==='sydney'?"The stagehand's last note":"The keeper's last note";p.textContent=discovery.ending;ending.append(h,p);body.append(ending);}
+ $('discovery-trail-name').textContent=discovery.city==='cairo'?"THE PAPER-MAKER'S ENVELOPE":discovery.city==='london'?"THE TIMEKEEPER'S LETTER":discovery.city==='paris'?"THE GARDENER'S SKETCHBOOK":discovery.city==='tokyo'?"THE LANTERN-MAKER'S PAPER LIGHT":discovery.city==='sydney'?"THE STAGEHAND'S PAPER BOAT":"BRIDGE KEEPER'S TRAIL";const body=$('discovery-stories');body.replaceChildren();for(const [i,item] of trail.entries()){const card=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');h.textContent=(item.found?'Found · ':item.current?'Next · ':'Locked · ')+item.title;p.textContent=item.found?seen[i].story:item.current?item.clue:'Find the earlier fragment to reveal this story.';card.className='discovery-journal-card';card.append(h,p);if(item.found){const note=document.createElement('p');note.className='discovery-observation';note.textContent='You noticed: '+seen[i].observation;card.append(note);}body.append(card);}if(finished){const ending=document.createElement('section'),h=document.createElement('h3'),p=document.createElement('p');ending.className='discovery-journal-card discovery-ending';h.textContent=discovery.city==='cairo'?"The paper-maker's last fold":discovery.city==='london'?"The timekeeper's last line":discovery.city==='paris'?"The gardener's last page":discovery.city==='tokyo'?"The lantern-maker's last note":discovery.city==='sydney'?"The stagehand's last note":"The keeper's last note";p.textContent=discovery.ending;ending.append(h,p);body.append(ending);}
  $('discovery-summary').textContent=finished?'Complete: all three fragments found. Session only; no points or stamps.':seen.length+' / 3 fragments found. Your next stop is below. Page refresh clears this trail.';$('discovery-continue').textContent=finished?'Back to the world':'Continue trail';setPanel('discovery');
 }});
 const localMap = createLocalMap({ getTaxiPickup:()=>state.taxi&&['arrive','wait'].includes(state.taxi.phase)?state.taxi.bay:null, getDiscovery:()=>discovery.mapStops,  getLandmarkName: () => state._protoPrague ? null : LANDMARK_NAMES[state.city], getWorld: () => worldData, getPlayer: () => player, getCityName: () => state._protoPrague ? 'Prague (proto)' : state.city === 'kerala' ? 'Kerala' : (CITY_DEFS[state.city] || {}).name || 'City', onChoose: () => setPanel('none') });
@@ -1599,7 +1609,7 @@ function loop(t) {
   updateBalls(dt); // 118v
   updateWaves(dt); // 118x
   if (t - localMapLast > 250) { localMap.tick(state.city, cam.yaw);discovery.tick();if(state.panel==='explore')drawExploreMap($('explore-map-preview'),worldData,player); localMapLast = t; }
-  { const lh = $('landmark-hint'), nm = (state.transit || state._protoPrague) ? null : LANDMARK_NAMES[state.city]; if (lh) { if (state._protoPrague && player && state.stage === 'play') { lh.hidden = false; const t = 'Prague (proto) · local dev preview · schematic geography · no stamps or points in preview'; if (lh.textContent !== t) lh.textContent = t; } else if (state.transit && player) { /* Update 168a: proto branch first - nm null above keeps the stamp/arrival branch unreachable in preview */ lh.hidden = false; const bc = worldData.transit && worldData.transit.beacon; const d = bc ? Math.max(0, Math.round(Math.hypot(player.x - bc.x, player.z - bc.z) - bc.r)) : 0; const t = (state.transit.kind === 'air' ? 'Flight to ' : 'Crossing to ') + state.transit.label + ' · ' + d + ' m to the beacon' + ' · schematic crossing, just you out here'; if (lh.textContent !== t) lh.textContent = t; } else if (nm && player && state.stage === 'play') { lh.hidden = false; const dist = Math.round(Math.hypot(player.x, player.z + 26)); const t = 'Landmark (low-poly): ' + nm + ' · ' + dist + ' m' + ((state._passport && state._passport[state.city]) ? ' · ★ stamped in your passport' : ' · ☆ walk up to stamp it') + ((state._travFound && state._travFound[state.city]) ? ' · ☺ little traveler met' : ' · ☺ find the little traveler'); if (lh.textContent !== t) lh.textContent = t;
+  { const lh = $('landmark-hint'), nm = (state.transit || state._protoPrague) ? null : LANDMARK_NAMES[state.city]; if (lh) { if (state._protoPrague && player && state.stage === 'play') { lh.hidden = false; const t = 'Prague (proto) · local dev preview · schematic geography · no stamps or points in preview'; if (lh.textContent !== t) lh.textContent = t; } else if (state.transit && player) { /* Update 168a: proto branch first - nm null above keeps the stamp/arrival branch unreachable in preview */ lh.hidden = false; const bc = worldData.transit && worldData.transit.beacon; const d = bc ? Math.max(0, Math.round(Math.hypot(player.x - bc.x, player.z - bc.z) - bc.r)) : 0; const t = (state.transit.kind === 'air' ? 'Flight to ' : 'Crossing to ') + state.transit.label + ' · ' + d + ' m to the beacon' + ' · schematic crossing, just you out here'; if (lh.textContent !== t) lh.textContent = t; } else if (nm && player && state.stage === 'play') { lh.hidden = false; const dist = Math.round(Math.hypot(player.x, player.z + 26)); const t = discovery.hudHint || 'Landmark (low-poly): ' + nm + ' · ' + dist + ' m' + ((state._passport && state._passport[state.city]) ? ' · ★ stamped in your passport' : ' · ☆ walk up to stamp it') + ((state._travFound && state._travFound[state.city]) ? ' · ☺ little traveler met' : ' · ☺ find the little traveler'); if (lh.textContent !== t) lh.textContent = t;
       // landmark arrival moment: first entry into the landmark disc per city visit - client-side only, session state only
       if (state._lmCity !== state.city) { state._lmCity = state.city; state._lmR = 0; state._lmArrived = false; hideArrival(); }
       if (!state._lmR) { let r = 0; for (const c of (worldData.colliders || [])) if (c.x === 0 && c.z === -26 && !c.off && c.r > r) r = c.r; state._lmR = r || 8; }
@@ -1993,8 +2003,8 @@ function loadTransit(dest, apIdx, kind, label) {
   if (state.taxi) cancelTaxi();
   if (player && player.pk) setVehicle(player, null, 0); else occRestore();
   if (worldData && worldData.group) { scene.remove(worldData.group); worldData.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  for (const p of pickups) { scene.remove(p.model); disposeModel(p.model); p.label.el.remove(); } pickups.length = 0;
-  for (const b of balls) { scene.remove(b.mesh); disposeModel(b.mesh); } balls = [];
+  for (const p of pickups) { scene.remove(p.model); disposeVehicleModel(p.model); p.label.el.remove(); } pickups.length = 0;
+  for (const b of balls) { scene.remove(b.mesh); disposeVehicleModel(b.mesh); } balls = [];
   for (const R of remotes.values()) { if (R.veh) { scene.remove(R.veh); disposeVehicleModel(R.veh); } scene.remove(R.group); disposeModel(R.group); R.tag.el.remove(); }
   remotes.clear();
   clearParked();
@@ -2059,9 +2069,9 @@ function loadCity(id) {
   { const gl = document.querySelector('.lk-goal'); if (gl) gl.style.display = ''; const hs = document.querySelector('.lk-hints span'); if (hs && state._protoHints) { hs.textContent = state._protoHints; state._protoHints = null; } } /* 175: restore host HUD texts the preview replaced */
   if (state._protoPres) { const pn = $('presence-num'); if (pn) { pn.textContent = state._protoPres.n; const dim = pn.parentElement && pn.parentElement.querySelector('.lk-pill-dim'); if (dim && state._protoPres.d) dim.textContent = state._protoPres.d; } state._protoPres = null; } // 170: restore the real presence pill
   if (worldData && worldData.group) { scene.remove(worldData.group); worldData.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  for (const p of pickups) { scene.remove(p.model); disposeModel(p.model); p.label.el.remove(); }
+  for (const p of pickups) { scene.remove(p.model); disposeVehicleModel(p.model); p.label.el.remove(); }
   pickups.length = 0;
-  for (const b of balls) { scene.remove(b.mesh); disposeModel(b.mesh); } balls = []; // 118v
+  for (const b of balls) { scene.remove(b.mesh); disposeVehicleModel(b.mesh); } balls = []; // 118v
   for (const R of remotes.values()) { if (R.veh) { scene.remove(R.veh); disposeVehicleModel(R.veh); } scene.remove(R.group); disposeModel(R.group); R.tag.el.remove(); }
   remotes.clear();
   const prevCity = state.city;
@@ -2584,8 +2594,9 @@ async function voiceStats() {
 }
 async function voicePoll() {
   if (!V.on || V.busy) return;
+  const session=voiceSession;
   V.busy = true;
-  try { await voicePollInner(); } catch {} finally { V.busy = false; }
+  try { await voicePollInner(); } catch {} finally { if(session===voiceSession)V.busy = false; }
 }
 async function voicePollInner() {
   const session=voiceSession,city=state.city,gen=state._cityGen;
@@ -2677,6 +2688,7 @@ function voiceRender() {
 }
 window.__voice = V;
 /* ---------- Ludo ---------- */
+let ludoApplied = 0, ludoBarrier = 0;
 let ludoSeq = 0;
 let ludoTimer = null, ludoG = null, ludoBusy = false, ludoRewarded = null;
 const LUDO_COL = ['#e0483b', '#2f7bd9'];
@@ -2689,10 +2701,10 @@ function ludoOpen() {
 async function ludoCall(path, body) {
   if (!state.account || !state.account.token) { pushToast('Join first to play'); return; }
   if (ludoBusy) return; ludoBusy = true;
-  const seq=++ludoSeq, me=state.account.playerId;
+  const seq=++ludoSeq, me=state.account.playerId; ludoBarrier=seq;
   try {
     const r = await api('/players/' + state.account.playerId + '/ludo' + path, body ? { method: 'POST', body: JSON.stringify(body) } : undefined);
-    if(seq===ludoSeq&&me===(state.account&&state.account.playerId)){ludoG = r.game; ludoRender();}
+    if(seq===ludoSeq&&me===(state.account&&state.account.playerId)){ludoApplied=seq;ludoG = r.game; ludoRender();}
   } catch (e) { pushToast(String(e.message || e)); await ludoPoll(true); }
   ludoBusy = false;
 }
@@ -2700,7 +2712,7 @@ async function ludoPoll(force) {
   if (ludoBusy && !force) return;
   if (!state.account || !state.account.token) { ludoG = null; ludoRender(); return; }
   const seq=++ludoSeq, me=state.account.playerId;
-  try { const r = await api('/players/' + state.account.playerId + '/ludo'); if(seq!==ludoSeq||me!==(state.account&&state.account.playerId))return; if (!ludoG || !r.game || r.game.rev !== ludoG.rev || r.game.status !== ludoG.status || true) { ludoG = r.game; ludoRender(); } } catch {}
+  try { const r = await api('/players/' + state.account.playerId + '/ludo'); if(seq<ludoBarrier||seq<ludoApplied||me!==(state.account&&state.account.playerId))return; ludoApplied=seq; if (!ludoG || !r.game || r.game.rev !== ludoG.rev || r.game.status !== ludoG.status || true) { ludoG = r.game; ludoRender(); } } catch {}
 }
 function ludoWire() {
   $('ludo-find').onclick = () => ludoCall('/new', { mode: 'human' });
@@ -2712,7 +2724,8 @@ function ludoWire() {
 const EVENT_KINDS = { 'open-stage': 'Open Stage', 'dance-night': 'Dance Night', 'music-hour': 'Music Hour', 'folk-show': 'Folk Show', 'party-time': 'Party Time' };
 
 /* ---------- Echo Dance ---------- */
-let echoSeq = 0, echoDemo = 0;
+let echoApplied = 0, echoBarrier = 0;
+let echoSeq = 0, echoDemo = 0, echoDeal = null;
 let echoTimer = null, echoG = null, echoBusy = false, echoAnimRev = 0, echoPick = [];
 const ECHO_MOVES = ['dance', 'party', 'bhangra', 'disco', 'robot', 'spin', 'moonwalk', 'garba'];
 const ECHO_LABEL = { dance: 'Dance', party: 'Party', bhangra: 'Bhangra', disco: 'Disco', robot: 'Robot', spin: 'Spin', moonwalk: 'Moonwalk', garba: 'Garba' };
@@ -2721,10 +2734,10 @@ function echoOpen() { echoStop(); echoPoll(); echoTimer = setInterval(echoPoll, 
 async function echoCall(path, body) {
   if (!state.account || !state.account.token) { pushToast('Join first to play'); return; }
   if (echoBusy) return; echoBusy = true;
-  const seq=++echoSeq, me=state.account.playerId;
+  const seq=++echoSeq, me=state.account.playerId; echoBarrier=seq;
   try {
     const r = await api('/players/' + state.account.playerId + '/echo' + path, body ? { method: 'POST', body: JSON.stringify(body) } : undefined);
-    if(seq===echoSeq&&me===(state.account&&state.account.playerId)){echoG = r.game; echoRender();}
+    if(seq===echoSeq&&me===(state.account&&state.account.playerId)){echoApplied=seq;echoG = r.game; echoRender();}
   } catch (e) { pushToast(String(e.message || e)); await echoPoll(true); }
   finally { echoBusy = false; }
 }
@@ -2732,7 +2745,7 @@ async function echoPoll(force) {
   if (echoBusy && !force) return;
   if (!state.account || !state.account.token) { echoG = null; echoRender(); return; }
   const seq=++echoSeq, me=state.account.playerId;
-  try { const r = await api('/players/' + state.account.playerId + '/echo'); if(seq!==echoSeq||me!==(state.account&&state.account.playerId))return; echoG = r.game; echoRender(); } catch {}
+  try { const r = await api('/players/' + state.account.playerId + '/echo'); if(seq<echoBarrier||seq<echoApplied||me!==(state.account&&state.account.playerId))return; echoApplied=seq; echoG = r.game; echoRender(); } catch {}
 }
 function echoRender() {
   if(state.panel!=='echo')return;
@@ -2740,7 +2753,9 @@ function echoRender() {
   // mobile watch mode: compact top banner (CSS, <=520px) so the dancing avatar stays visible below
   $('panel-echo').classList.toggle('echo-watch', !!(g && g.status === 'playing' && g.phase === 'watch'));
   menu.hidden = !!g; game.hidden = !g;
-  if (!g) { echoAnimRev = 0; echoPick = []; return; }
+  if (!g) { echoAnimRev = 0; echoDeal = null; echoPick = []; return; }
+  const deal = JSON.stringify([g.id,g.round,g.attempts]);
+  if(deal!==echoDeal){echoDeal=deal;echoPick=[];$('echo-picked').textContent='';}
   const names = g.players.map((p, i) => p ? p.name + (i === g.you ? ' (you)' : '') : 'Waiting…');
   let st;
   if (g.status === 'waiting') st = 'Waiting for another dancer to join… (the computer is available if nobody comes)';
@@ -2764,16 +2779,16 @@ function echoRender() {
     };
     setTimeout(stepIt, 600);
   }
-  if (g.phase !== 'watch' && big.textContent === '…') big.textContent = '';
+  if (g.phase !== 'watch') big.textContent = '';
   // input pad
-  const pad = $('echo-pad'); pad.innerHTML = '';
+  const pad = $('echo-pad');
   const canInput = g.status === 'playing' && g.phase === 'input' && !g.submitted[g.you];
-  for (const m of ECHO_MOVES) {
+  if (!pad.children.length) for (const m of ECHO_MOVES) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'lk-chip'; b.textContent = ECHO_LABEL[m];
-    b.disabled = !canInput; b.style.opacity = canInput ? '1' : '.45';
-    b.onclick = () => { if (echoG && echoPick.length < echoG.seqLen) { echoPick.push(m); $('echo-picked').textContent = echoPick.map(x => ECHO_LABEL[x]).join(' · '); $('echo-submit').disabled = echoPick.length !== echoG.seqLen; } };
+    b.onclick = () => { if (state.panel==='echo' && echoG && echoG.status==='playing' && echoG.phase==='input' && !echoG.submitted[echoG.you] && echoPick.length < echoG.seqLen) { echoPick.push(m); $('echo-picked').textContent = echoPick.map(x => ECHO_LABEL[x]).join(' · '); $('echo-submit').disabled = echoPick.length !== echoG.seqLen; } };
     pad.appendChild(b);
   }
+  for (const b of pad.children) { b.disabled = !canInput; b.style.opacity = canInput ? '1' : '.45'; }
   if (!canInput && g.phase !== 'input') $('echo-picked').textContent = '';
   else if (!canInput) $('echo-picked').textContent = 'Submitted.';
   $('echo-submit').hidden = !canInput; $('echo-clear').hidden = !canInput;
@@ -2785,12 +2800,13 @@ function echoWire() {
   $('echo-bot').onclick = () => echoCall('/new', { mode: 'computer' });
   $('echo-leave').onclick = () => { echoCall('/leave', {}); };
   $('echo-clear').onclick = () => { echoPick = []; $('echo-picked').textContent = ''; echoRender(); };
-  $('echo-submit').onclick = () => { if (echoG && echoPick.length === echoG.seqLen) { const seq = echoPick.slice(); echoPick = []; echoCall('/submit', { seq }); } };
+  $('echo-submit').onclick = () => { if (echoG && echoPick.length === echoG.seqLen) { const seq = echoPick.slice(); echoCall('/submit', { seq }); } }; // preserve recalled moves for same-phase retry after failure
   $('ludo-toecho').onclick = e => { e.preventDefault(); setPanel('echo'); };
   $('echo-toludo').onclick = e => { e.preventDefault(); setPanel('ludo'); };
 }
 
 /* ---------- Freeze Beat ---------- */
+let freezeApplied = 0, freezeBarrier = 0;
 let freezeSeq = 0;
 let freezeTimer = null, freezeG = null, freezeBusy = false, freezeSeenRound = 0, freezeSeenAt = 0;
 let freezeActx = null, freezeBeatIt = null, freezeSound = false;
@@ -2818,10 +2834,10 @@ function freezeOpen() { freezeStop(); freezePoll(); freezeTimer = setInterval(fr
 async function freezeCall(path, body) {
   if (!state.account || !state.account.token) { pushToast('Join first to play'); return; }
   if (freezeBusy) return; freezeBusy = true;
-  const seq=++freezeSeq, me=state.account.playerId;
+  const seq=++freezeSeq, me=state.account.playerId; freezeBarrier=seq;
   try {
     const r = await api('/players/' + state.account.playerId + '/freeze' + path, body ? { method: 'POST', body: JSON.stringify(body) } : undefined);
-    if(seq===freezeSeq&&me===(state.account&&state.account.playerId)){freezeG = r.game; freezeRender();}
+    if(seq===freezeSeq&&me===(state.account&&state.account.playerId)){freezeApplied=seq;freezeG = r.game; freezeRender();}
   } catch (e) { pushToast(String(e.message || e)); await freezePoll(true); }
   finally { freezeBusy = false; }
 }
@@ -2829,7 +2845,7 @@ async function freezePoll(force) {
   if (freezeBusy && !force) return;
   if (!state.account || !state.account.token) { freezeG = null; freezeRender(); return; }
   const seq=++freezeSeq, me=state.account.playerId;
-  try { const r = await api('/players/' + state.account.playerId + '/freeze'); if(seq!==freezeSeq||me!==(state.account&&state.account.playerId))return; freezeG = r.game; freezeRender(); } catch (e) {}
+  try { const r = await api('/players/' + state.account.playerId + '/freeze'); if(seq<freezeBarrier||seq<freezeApplied||me!==(state.account&&state.account.playerId))return; freezeApplied=seq; freezeG = r.game; freezeRender(); } catch (e) {}
 }
 function freezeRender() {
   if(state.panel!=='freeze'){freezeBeatStop();return;}
@@ -2880,7 +2896,7 @@ function freezeWire() {
   $('freeze-sound').onclick = () => { freezeSound = !freezeSound; try { localStorage.setItem('lk_freeze_sound', freezeSound ? '1' : '0'); } catch (e) {} if (!freezeSound) freezeBeatStop(); freezeRender(); };
   $('freeze-tap').onclick = () => {
     if (!freezeG || freezeG.status !== 'playing') return;
-    if (freezeG.phase === 'stop' && freezeSeenAt) { const ms = Math.round(performance.now() - freezeSeenAt); freezeSeenAt = 0; freezeCall('/tap', { reactionMs: ms }); }
+    if (freezeG.phase === 'stop' && freezeSeenAt) { const ms = Math.round(performance.now() - freezeSeenAt); freezeCall('/tap', { reactionMs: ms }); } // retain cue origin for same-round retry after network failure
     else freezeCall('/tap', {}); // during the music this is a false start and loses the round
   };
   $('freeze-toludo').onclick = e => { e.preventDefault(); setPanel('ludo'); };
