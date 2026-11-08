@@ -1,0 +1,53 @@
+name: Game checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: game-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  syntax-and-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out game source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Use Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Check tracked JavaScript syntax
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { execFileSync, spawnSync } = require('node:child_process');
+          const files = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
+            .split('\0').filter(file => /\.(?:js|mjs|cjs)$/.test(file));
+          for (const file of files) {
+            const module = file.startsWith('public/') || file.endsWith('.mjs');
+            const result = spawnSync(process.execPath,
+              ['--check', '--input-type=' + (module ? 'module' : 'commonjs')],
+              { input: fs.readFileSync(file), encoding: 'utf8' });
+            if (result.status !== 0) {
+              console.error(file, result.stderr || result.error);
+              process.exit(1);
+            }
+          }
+          console.log('Syntax checked:', files.length, 'tracked JavaScript files');
+          NODE
+      - name: Check game rules and rate limits
+        run: |
+          timeout 60s node echo.test.js
+          timeout 60s node ludo.test.js
+          timeout 60s node tests/events.test.mjs
+          timeout 60s node tests/freeze-rules.test.mjs
+          timeout 60s node tests/ratelimit.test.mjs
